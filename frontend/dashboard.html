@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — EventHub</title>
+  <meta name="description" content="Admin dashboard to create, manage and track events">
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+</head>
+<body>
+
+  <!-- Auth guard -->
+  <script>
+    if (!localStorage.getItem("token")) {
+      window.location.href = "login.html";
+    }
+    // Restore theme
+    const saved = localStorage.getItem("theme") || "dark";
+    document.documentElement.setAttribute("data-theme", saved);
+  </script>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span>🎉</span> EventHub
+    </div>
+    <div class="nav-actions">
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle dark/light mode"></button>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">🚪 Logout</button>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <div class="dashboard-container">
+
+    <!-- STATS ROW -->
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card">
+        <div class="stat-icon purple">📅</div>
+        <div class="stat-info"><h3 id="statTotal">—</h3><p>Total Events</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">🚀</div>
+        <div class="stat-info"><h3 id="statUpcoming">—</h3><p>Upcoming Events</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue">👥</div>
+        <div class="stat-info"><h3 id="statRegs">—</h3><p>Total Registrations</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon orange">🏷️</div>
+        <div class="stat-info"><h3 id="statCats">—</h3><p>Categories</p></div>
+      </div>
+    </div>
+
+    <!-- CREATE EVENT FORM -->
+    <div class="section-card">
+      <div class="section-title">✨ Create New Event</div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="eventName">Event Name *</label>
+          <input type="text" id="eventName" placeholder="e.g. Tech Summit 2026">
+        </div>
+        <div class="form-field">
+          <label for="eventCategory">Category</label>
+          <select id="eventCategory">
+            <option value="General">🌐 General</option>
+            <option value="Conference">🎤 Conference</option>
+            <option value="Workshop">🛠️ Workshop</option>
+            <option value="Party">🎊 Party</option>
+            <option value="Webinar">💻 Webinar</option>
+            <option value="Other">📌 Other</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="eventDate">Date</label>
+          <input type="date" id="eventDate">
+        </div>
+        <div class="form-field">
+          <label for="eventCapacity">Capacity</label>
+          <input type="number" id="eventCapacity" placeholder="100" min="1">
+        </div>
+        <div class="form-field">
+          <label for="eventLocation">Location</label>
+          <input type="text" id="eventLocation" placeholder="e.g. Mumbai Convention Center">
+        </div>
+        <div class="form-field">
+          <label for="eventDescription">Description</label>
+          <input type="text" id="eventDescription" placeholder="Short description...">
+        </div>
+      </div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end;">
+        <button class="btn btn-primary" style="width:auto; padding:12px 28px;" id="createBtn" onclick="addEvent()">
+          ✨ Create Event
+        </button>
+      </div>
+    </div>
+
+    <!-- EVENTS LIST -->
+    <div class="section-card">
+      <div class="section-title">📋 All Events</div>
+
+      <!-- Search & Filter toolbar -->
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Search events by name, location..." oninput="onSearch()">
+        </div>
+        <select class="filter-select" id="filterCategory" onchange="onSearch()">
+          <option value="All">All Categories</option>
+          <option value="General">🌐 General</option>
+          <option value="Conference">🎤 Conference</option>
+          <option value="Workshop">🛠️ Workshop</option>
+          <option value="Party">🎊 Party</option>
+          <option value="Webinar">💻 Webinar</option>
+          <option value="Other">📌 Other</option>
+        </select>
+      </div>
+
+      <div id="eventList"><div class="empty-state"><div class="empty-icon">⏳</div><p>Loading events...</p></div></div>
+    </div>
+
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ===== EDIT MODAL ===== -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">✏️ Edit Event</div>
+        <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Event Name *</label>
+          <input type="text" id="editName" placeholder="Event Name">
+        </div>
+        <div class="form-field">
+          <label>Category</label>
+          <select id="editCategory">
+            <option value="General">🌐 General</option>
+            <option value="Conference">🎤 Conference</option>
+            <option value="Workshop">🛠️ Workshop</option>
+            <option value="Party">🎊 Party</option>
+            <option value="Webinar">💻 Webinar</option>
+            <option value="Other">📌 Other</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Date</label>
+          <input type="date" id="editDate">
+        </div>
+        <div class="form-field">
+          <label>Capacity</label>
+          <input type="number" id="editCapacity" min="1">
+        </div>
+        <div class="form-field full">
+          <label>Location</label>
+          <input type="text" id="editLocation" placeholder="Location">
+        </div>
+        <div class="form-field full">
+          <label>Description</label>
+          <input type="text" id="editDescription" placeholder="Description">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('editModal')">Cancel</button>
+        <button class="btn btn-primary" style="width:auto;" onclick="saveEdit()">💾 Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== DELETE CONFIRM MODAL ===== -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal" style="max-width:400px; text-align:center;">
+      <div class="confirm-icon">🗑️</div>
+      <div class="confirm-title">Delete Event?</div>
+      <p class="confirm-text">This will permanently delete</p>
+      <p class="confirm-text" id="deleteEventName" style="font-weight:700; color:var(--text); font-size:16px; margin:8px 0;"></p>
+      <p class="confirm-text">All registrations for this event will also be removed.</p>
+      <div class="modal-footer" style="justify-content:center; margin-top:20px;">
+        <button class="btn btn-ghost" onclick="closeModal('deleteModal')">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">🗑️ Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== REGISTRATIONS MODAL ===== -->
+  <div class="modal-overlay" id="regsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">👥 Registrations</div>
+        <button class="modal-close" onclick="closeModal('regsModal')">✕</button>
+      </div>
+      <p style="font-size:13px; color:var(--text2); margin-bottom:16px;" id="regsEventName"></p>
+      <div id="regsList"></div>
+    </div>
+  </div>
+
+  <!-- ===== REGISTER MODAL ===== -->
+  <div class="modal-overlay" id="registerModal">
+    <div class="modal" style="max-width:400px;">
+      <div class="modal-header">
+        <div class="modal-title">🎟️ Register for Event</div>
+        <button class="modal-close" onclick="closeModal('registerModal')">✕</button>
+      </div>
+      <p style="font-size:13px; color:var(--text2); margin-bottom:20px;" id="registerEventName"></p>
+      <div class="form-field" style="margin-bottom:14px;">
+        <label>Your Name *</label>
+        <input type="text" id="regName" placeholder="John Doe">
+      </div>
+      <div class="form-field">
+        <label>Email *</label>
+        <input type="email" id="regEmail" placeholder="john@example.com">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('registerModal')">Cancel</button>
+        <button class="btn btn-success" onclick="submitRegistration()">🎟️ Register</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // API is loaded from config.js
+    let editingId = null;
+    let deletingId = null;
+    let registeringId = null;
+    let searchTimer = null;
+
+    // ============ THEME ============
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute("data-theme");
+      const next = current === "dark" ? "light" : "dark";
+      html.setAttribute("data-theme", next);
+      localStorage.setItem("theme", next);
+    }
+
+    // ============ TOAST ============
+    function showToast(msg, type = "info") {
+      const c = document.getElementById("toastContainer");
+      const t = document.createElement("div");
+      t.className = `toast ${type}`;
+      const icons = { success: "✅", error: "❌", info: "ℹ️" };
+      t.innerHTML = `<span>${icons[type] || "ℹ️"}</span><span>${msg}</span>`;
+      c.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    }
+
+    // ============ MODAL ============
+    function openModal(id) { document.getElementById(id).classList.add("active"); }
+    function closeModal(id) { document.getElementById(id).classList.remove("active"); }
+
+    // Close modal on overlay click
+    document.querySelectorAll(".modal-overlay").forEach(overlay => {
+      overlay.addEventListener("click", e => { if (e.target === overlay) overlay.classList.remove("active"); });
+    });
+
+    // ============ STATS ============
+    async function loadStats() {
+      try {
+        const res = await fetch(`${API}/stats`);
+        const data = await res.json();
+        document.getElementById("statTotal").textContent = data.totalEvents;
+        document.getElementById("statUpcoming").textContent = data.upcomingEvents;
+        document.getElementById("statRegs").textContent = data.totalRegistrations;
+
+        const evRes = await fetch(`${API}/events`);
+        const events = await evRes.json();
+        const cats = new Set(events.map(e => e.category).filter(Boolean));
+        document.getElementById("statCats").textContent = cats.size;
+      } catch { /* silently fail */ }
+    }
+
+    // ============ LOAD EVENTS ============
+    async function getEvents() {
+      const search = document.getElementById("searchInput").value.trim();
+      const category = document.getElementById("filterCategory").value;
+
+      const params = new URLSearchParams();
+      if (search) params.append("search", search);
+      if (category && category !== "All") params.append("category", category);
+
+      try {
+        const res = await fetch(`${API}/events?${params}`);
+        const events = await res.json();
+        renderEvents(events);
+      } catch {
+        showToast("Failed to load events", "error");
+      }
+    }
+
+    function renderEvents(events) {
+      const list = document.getElementById("eventList");
+      if (!events.length) {
+        list.innerHTML = `<div class="empty-state"><div class="empty-icon">🗂️</div><h3>No events found</h3><p>Create your first event above or adjust your search.</p></div>`;
+        return;
+      }
+
+      const catClass = { Conference:"badge-conference", Workshop:"badge-workshop", Party:"badge-party", Webinar:"badge-webinar", General:"badge-general", Other:"badge-other" };
+
+      list.innerHTML = `<div class="events-grid">${events.map(ev => {
+        const badge = catClass[ev.category] || "badge-general";
+        const dateStr = ev.date ? new Date(ev.date + "T00:00").toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "TBA";
+        const descText = ev.description ? ev.description.substring(0, 80) + (ev.description.length > 80 ? "…" : "") : "No description";
+        return `
+        <div class="event-card" id="card-${ev._id}">
+          <div class="card-header">
+            <div class="card-title">${ev.name}</div>
+            <span class="badge ${badge}">${ev.category || "General"}</span>
+          </div>
+          <div class="card-meta">
+            <div class="card-meta-item"><span>📅</span><span>${dateStr}</span></div>
+            <div class="card-meta-item"><span>📍</span><span>${ev.location || "Location TBA"}</span></div>
+            <div class="card-meta-item"><span>🪑</span><span>Capacity: ${ev.capacity || 100}</span></div>
+          </div>
+          <div class="card-desc">${descText}</div>
+          <div class="card-footer">
+            <div class="reg-count" onclick="viewRegistrations('${ev._id}','${ev.name.replace(/'/g,"\\'")}')">
+              👥 Registered <span class="count-badge">${ev.registrationCount || 0}</span>
+            </div>
+            <div class="card-actions">
+              <button class="btn btn-success btn-sm" onclick="openRegisterModal('${ev._id}','${ev.name.replace(/'/g,"\\'")}')">🎟️ Join</button>
+              <button class="btn btn-edit btn-sm" onclick="openEditModal('${ev._id}','${ev.name.replace(/'/g,"\\'")}','${ev.date||""}','${ev.location||""}','${ev.description||""}','${ev.category||"General"}','${ev.capacity||100}')">✏️ Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${ev._id}','${ev.name.replace(/'/g,"\\'")}')">🗑️</button>
+            </div>
+          </div>
+        </div>`;
+      }).join("")}</div>`;
+    }
+
+    // ============ SEARCH (debounced) ============
+    function onSearch() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(getEvents, 300);
+    }
+
+    // ============ CREATE EVENT ============
+    async function addEvent() {
+      const name = document.getElementById("eventName").value.trim();
+      if (!name) { showToast("Event name is required!", "error"); return; }
+
+      const btn = document.getElementById("createBtn");
+      btn.innerHTML = `<span class="spinner"></span> Creating...`;
+      btn.disabled = true;
+
+      const payload = {
+        name,
+        date:        document.getElementById("eventDate").value,
+        location:    document.getElementById("eventLocation").value,
+        description: document.getElementById("eventDescription").value,
+        category:    document.getElementById("eventCategory").value,
+        capacity:    parseInt(document.getElementById("eventCapacity").value) || 100
+      };
+
+      try {
+        const res = await fetch(`${API}/events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          showToast("Event created successfully! 🎉", "success");
+          ["eventName","eventDate","eventLocation","eventDescription","eventCapacity"].forEach(id => document.getElementById(id).value = "");
+          document.getElementById("eventCategory").value = "General";
+          getEvents(); loadStats();
+        } else {
+          const d = await res.json();
+          showToast(d.message || "Failed to create event", "error");
+        }
+      } catch { showToast("Server error", "error"); }
+
+      btn.innerHTML = "✨ Create Event";
+      btn.disabled = false;
+    }
+
+    // ============ DELETE ============
+    function openDeleteModal(id, name) {
+      deletingId = id;
+      document.getElementById("deleteEventName").textContent = `"${name}"`;
+      openModal("deleteModal");
+    }
+
+    async function confirmDelete() {
+      if (!deletingId) return;
+      try {
+        await fetch(`${API}/events/${deletingId}`, { method: "DELETE" });
+        showToast("Event deleted", "success");
+        closeModal("deleteModal");
+        getEvents(); loadStats();
+      } catch { showToast("Delete failed", "error"); }
+      deletingId = null;
+    }
+
+    // ============ EDIT ============
+    function openEditModal(id, name, date, location, description, category, capacity) {
+      editingId = id;
+      document.getElementById("editName").value = name;
+      document.getElementById("editDate").value = date;
+      document.getElementById("editLocation").value = location;
+      document.getElementById("editDescription").value = description;
+      document.getElementById("editCategory").value = category;
+      document.getElementById("editCapacity").value = capacity;
+      openModal("editModal");
+    }
+
+    async function saveEdit() {
+      const name = document.getElementById("editName").value.trim();
+      if (!name) { showToast("Event name required", "error"); return; }
+
+      try {
+        const res = await fetch(`${API}/events/${editingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            date:        document.getElementById("editDate").value,
+            location:    document.getElementById("editLocation").value,
+            description: document.getElementById("editDescription").value,
+            category:    document.getElementById("editCategory").value,
+            capacity:    parseInt(document.getElementById("editCapacity").value) || 100
+          })
+        });
+        if (res.ok) {
+          showToast("Event updated! ✅", "success");
+          closeModal("editModal");
+          getEvents();
+        } else { showToast("Update failed", "error"); }
+      } catch { showToast("Server error", "error"); }
+    }
+
+    // ============ REGISTRATIONS VIEWER ============
+    async function viewRegistrations(eventId, eventName) {
+      document.getElementById("regsEventName").textContent = `Showing registrations for: ${eventName}`;
+      document.getElementById("regsList").innerHTML = `<div style="text-align:center; padding:20px; color:var(--text2)"><span class="spinner" style="border-color:var(--border); border-top-color:var(--accent);"></span></div>`;
+      openModal("regsModal");
+
+      try {
+        const res = await fetch(`${API}/registrations/${eventId}`);
+        const regs = await res.json();
+        if (!regs.length) {
+          document.getElementById("regsList").innerHTML = `<div class="empty-state" style="padding:30px"><div class="empty-icon">👻</div><h3>No Registrations Yet</h3><p>Be the first to register!</p></div>`;
+          return;
+        }
+        document.getElementById("regsList").innerHTML = `
+          <div class="reg-list">
+            ${regs.map((r, i) => `
+              <div class="reg-item">
+                <div class="reg-avatar">${r.userName ? r.userName[0].toUpperCase() : "?"}</div>
+                <div class="reg-info">
+                  <h4>${r.userName || "Unknown"}</h4>
+                  <p>${r.userEmail || ""} • ${new Date(r.registeredAt).toLocaleDateString()}</p>
+                </div>
+              </div>`).join("")}
+          </div>`;
+      } catch { document.getElementById("regsList").innerHTML = `<p style="color:var(--danger)">Failed to load registrations.</p>`; }
+    }
+
+    // ============ REGISTER FOR EVENT ============
+    function openRegisterModal(id, name) {
+      registeringId = id;
+      document.getElementById("registerEventName").textContent = `Registering for: ${name}`;
+      document.getElementById("regName").value = "";
+      document.getElementById("regEmail").value = "";
+      openModal("registerModal");
+    }
+
+    async function submitRegistration() {
+      const userName = document.getElementById("regName").value.trim();
+      const userEmail = document.getElementById("regEmail").value.trim();
+      if (!userName || !userEmail) { showToast("Name and email required", "error"); return; }
+
+      try {
+        const res = await fetch(`${API}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId: registeringId, userName, userEmail })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast("Registered successfully! 🎉", "success");
+          closeModal("registerModal");
+          getEvents(); loadStats();
+        } else { showToast(data.message || "Registration failed", "error"); }
+      } catch { showToast("Server error", "error"); }
+    }
+
+    // ============ LOGOUT ============
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    }
+
+    // ============ INIT ============
+    getEvents();
+    loadStats();
+  </script>
+</body>
+</html>

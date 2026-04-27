@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login — EventHub</title>
+  <meta name="description" content="Secure admin login for EventHub event management platform">
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-box">
+      <div class="login-logo">🎉</div>
+      <h1>EventHub</h1>
+      <p class="login-subtitle">Admin Portal — Sign in to manage events</p>
+
+      <div class="input-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="admin" autocomplete="username">
+      </div>
+      <div class="input-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+
+      <button class="btn btn-primary" id="loginBtn" onclick="login()">
+        Sign In
+      </button>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    // API is loaded from config.js
+
+    // Enter key support
+    document.addEventListener("keydown", e => { if (e.key === "Enter") login(); });
+
+    function showToast(msg, type = "info") {
+      const c = document.getElementById("toastContainer");
+      const t = document.createElement("div");
+      t.className = `toast ${type}`;
+      const icons = { success: "✅", error: "❌", info: "ℹ️" };
+      t.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
+      c.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    }
+
+    async function login() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      const btn = document.getElementById("loginBtn");
+
+      if (!username || !password) { showToast("Please fill in all fields", "error"); return; }
+
+      btn.innerHTML = `<span class="spinner"></span> Signing in...`;
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`${API}/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          localStorage.setItem("token", data.token);
+          showToast("Welcome back! Redirecting...", "success");
+          setTimeout(() => window.location.href = "dashboard.html", 800);
+        } else {
+          showToast(data.message || "Invalid credentials", "error");
+          btn.innerHTML = "Sign In";
+          btn.disabled = false;
+        }
+      } catch {
+        showToast("Cannot connect to server", "error");
+        btn.innerHTML = "Sign In";
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
